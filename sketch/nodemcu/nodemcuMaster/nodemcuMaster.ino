@@ -4,12 +4,6 @@
 #include <ESP8266HTTPClient.h>
 #include <SoftwareSerial.h>
 
-// #define D0 16
-// #define D1 5
-// #define D2 4
-// #define D3 0
-// #define D4 2
-
 ESP8266WiFiMulti WiFiMulti;
 SoftwareSerial MCUSerial(D2, D3); //Rx, Tx
 String host = "https://hydro-udc.herokuapp.com",
@@ -79,25 +73,10 @@ void loop()
                     // }
 
                     //serializeJsonPretty(doc, Serial);
+                    
                     Serial.println("From API: " + response);
                     MCUSerial.print(response);
                     readFromArduino();
-                    delay(50);
-                    //          switch (response) {
-                    //            case "on":
-                    //              digitalWrite(D3, LOW);
-                    //              break;
-                    //            case: "off":
-                    //              digitalWrite(D3, HIGH);
-                    //              break;
-                    //            default:
-                    //              break;
-                    //          }
-
-                    //            if(response == "on")
-                    //              digitalWrite(D3, LOW);
-                    //            if(response == "off")
-                    //              digitalWrite(D3, HIGH);
                     cleanConnection();
                 }
             }
@@ -112,14 +91,14 @@ void loop()
             delay(1000);
             cleanConnection();
         }
-        delay(50);
+        //delay(50);
     }
     else
     {
         cleanConnection();
     }
 
-    delay(50);
+    //delay(50);
 }
 
 void ledBlink(int pin, int seconds)
@@ -148,4 +127,6 @@ void readFromArduino()
 
         Serial.println("From Arduino: " + response);
     }
+
+    delay(500);
 }
