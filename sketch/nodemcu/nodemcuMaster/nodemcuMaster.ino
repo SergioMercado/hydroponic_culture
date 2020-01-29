@@ -12,121 +12,122 @@ boolean cardRead = false;
 char data;
 HTTPClient hydroApi;
 String fingerPrint = "08 3b 71 72 02 43 6e ca ed 42 86 93 ba 7e df 81 c4 bc 62 30";
-//const size_t capacity = JSON_ARRAY_SIZE(16) + 3 * JSON_OBJECT_SIZE(6) + 5 * JSON_OBJECT_SIZE(7) + 8 * JSON_OBJECT_SIZE(9) + 5784;
-//DynamicJsonDocument doc(capacity);
+DynamicJsonDocument json(1024);
 
 void setup()
 {
-    WiFi.mode(WIFI_STA);
+  WiFi.mode(WIFI_STA);
 
-    WiFiMulti.addAP("Fuentech", "!Guapeton*");
+  WiFiMulti.addAP("Fuentech", "!Guapeton*");
+  WiFiMulti.addAP("ROCKELIN", "Fuentes2018TR");
 
-    pinMode(D4, OUTPUT);
+  pinMode(D4, OUTPUT);
 
-    Serial.begin(115200);
-    MCUSerial.begin(9600);
+  Serial.begin(115200);
+  MCUSerial.begin(9600);
 
-    while (WiFiMulti.run() != WL_CONNECTED)
-    {
-        digitalWrite(D4, HIGH);
-        delay(500);
-        Serial.print(".");
-    }
-    digitalWrite(D4, LOW);
-    Serial.println("");
-    Serial.print("Connected to ");
-    Serial.println(WiFi.SSID().c_str());
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
+  while (WiFiMulti.run() != WL_CONNECTED)
+  {
+    digitalWrite(D4, HIGH);
+    delay(500);
+    Serial.print(".");
+  }
+  digitalWrite(D4, LOW);
+  Serial.println("");
+  Serial.print("Connected to ");
+  Serial.println(WiFi.SSID().c_str());
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
 }
 
 void loop()
 {
 
-    if (WiFiMulti.run() == WL_CONNECTED)
+  if (WiFiMulti.run() == WL_CONNECTED)
+  {
+    endPoint = "/status";
+
+    if (hydroApi.begin(host + endPoint, fingerPrint))
     {
-        //Serial.println("\n[Connecting to %s ... " + host);
+      int statusCode = hydroApi.GET();
 
-        //Serial.println("[HTTP] begin...");
-        endPoint = "/status";
-
-        if (hydroApi.begin(host + endPoint, fingerPrint))
+      if (statusCode > 0)
+      {
+        // file found at server
+        if (statusCode == HTTP_CODE_OK || statusCode == HTTP_CODE_MOVED_PERMANENTLY)
         {
-            int statusCode = hydroApi.GET();
+          String response = hydroApi.getString();
 
-            if (statusCode > 0)
-            {
-                Serial.printf("statusCode: %d\n", statusCode);
+          Serial.println("From API: " + response);
 
-                // file found at server
-                if (statusCode == HTTP_CODE_OK || statusCode == HTTP_CODE_MOVED_PERMANENTLY)
-                {
-                    String response = hydroApi.getString();
-                    // DeserializationError error = deserializeJson(doc, responseData);
+          createJson();
+          delay(250);
+          serializeJson(json, MCUSerial);
+          Serial.flush();
 
-                    // if (error)
-                    //     return;
-
-                    // for (JsonObject user : doc.as<JsonArray>())
-                    // {
-                    //     Serial.println(user["name"].as<String>());
-                    // }
-
-                    //serializeJsonPretty(doc, Serial);
-                    
-                    Serial.println("From API: " + response);
-                    MCUSerial.print(response);
-                    readFromArduino();
-                    cleanConnection();
-                }
-            }
-            else
-            {
-                Serial.printf("[HTTP] GET failed, error: %s\n", hydroApi.errorToString(statusCode).c_str());
-            }
+          readFromArduino();
+          cleanConnection();
         }
-        else
-        {
-            Serial.printf("[HTTP] Unable to connect\n");
-            delay(1000);
-            cleanConnection();
-        }
-        //delay(50);
+      }
+      else
+      {
+        Serial.printf("[HTTP] GET failed, error: %s\n", hydroApi.errorToString(statusCode).c_str());
+      }
     }
     else
     {
-        cleanConnection();
+      Serial.printf("[HTTP] Unable to connect\n");
+      delay(1000);
+      cleanConnection();
     }
-
-    //delay(50);
+  }
+  else
+  {
+    cleanConnection();
+  }
 }
 
 void ledBlink(int pin, int seconds)
 {
-    digitalWrite(pin, LOW);
-    delay(1000 * seconds);
-    digitalWrite(pin, HIGH);
+  digitalWrite(pin, LOW);
+  delay(1000 * seconds);
+  digitalWrite(pin, HIGH);
 }
 
 void cleanConnection()
 {
-    hydroApi.end();
-    Serial.println("Disconnected\n");
+  hydroApi.end();
+  clearJson();
 }
 
 void readFromArduino()
 {
-    String response;
-    if (MCUSerial.available() > 0)
-    {
-        while (MCUSerial.available() > 0)
-        {
-            data = MCUSerial.read();
-            response += data;
-        }
+  clearJson();
 
-        Serial.println("From Arduino: " + response);
-    }
+  if (MCUSerial.available() > 0)
+  {
+    flushAll();
+    String dataFromArduino = MCUSerial.readString();
 
-    delay(500);
+    deserializeJson(json, dataFromArduino);
+    Serial.println(dataFromArduino);
+  }
+  delay(250);
+}
+
+void createJson()
+{
+  JsonObject pump = json.createNestedObject("pump");
+  pump["status"] = false;
+}
+
+void clearJson()
+{
+  json = JsonVariant();
+}
+
+void flushAll()
+{
+  while (MCUSerial.available())
+    MCUSerial.read();
 }

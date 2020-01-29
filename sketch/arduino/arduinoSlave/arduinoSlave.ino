@@ -1,8 +1,9 @@
-// Comumication to NODEMCU
+#include <ArduinoJson.h>
 #include <SoftwareSerial.h>
 
 SoftwareSerial ArduinoSerial(2, 3); //(Rx Tx) ESP -> Arduino: Tx -> 2, Rx -> 3.
 char data;
+DynamicJsonDocument json(1024);
 
 // Configuration of humidity (COH)
 #include "DHT.h"
@@ -11,96 +12,92 @@ char data;
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
 
-
-void setup() {
+void setup()
+{
 
   Serial.begin(115200);
   ArduinoSerial.begin(9600); //bd from master (ESP)
   pinMode(4, OUTPUT);
 
-
   //COH
   dht.begin();
-
 }
 
 void loop()
 {
-  checkSerialCom();
-  readHumiditySensor();
-  readTemperatureSensor();
+  json["temperature"] = readTemperatureSensor();
+  json["humidity"] = readHumiditySensor();
 
+  delay(250);
+
+  serializeJson(json, ArduinoSerial);
+
+  readFromNodemcu();
+  clearJson();
 }
 
+DynamicJsonDocument readHumiditySensor()
+{
+  DynamicJsonDocument humidityObj(JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(3) + 97);
 
-void readHumiditySensor() {
+  float humidity = dht.readHumidity();
+  humidityObj["type"] = "dht11";
 
-  float h = dht.readHumidity();
-
-  if (isnan(h)) {
+  if (isnan(humidity))
+  {
     Serial.println(F("Failed to read Humidity from DHT sensor!"));
-    return;
+    humidityObj["status"] = false;
+    humidityObj["value"] = 0;
+
+    return humidityObj;
   }
 
+  humidityObj["status"] = true;
+  humidityObj["value"] = humidity;
 
-
-  Serial.print(F("Humidity: "));
-  Serial.println(h);
-
-
-  ArduinoSerial.print(F("Humidity: "));
-  ArduinoSerial.print(h);
-  ArduinoSerial.println("%");
-
-  delay(500);
-
+  return humidityObj;
 }
 
+DynamicJsonDocument readTemperatureSensor()
+{
+  DynamicJsonDocument temperatureObj(JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(3) + 97);
+  float temperature = dht.readTemperature();
+  temperatureObj["type"] = "dht11";
 
-void readTemperatureSensor() {
-
-  float t = dht.readTemperature();
-
-  if (isnan(t)) {
+  if (isnan(temperature))
+  {
     Serial.println(F("Failed to read Temperature from DHT sensor!"));
-    return;
-
+    temperatureObj["status"] = false;
+    temperatureObj["value"] = 0;
+    return temperatureObj;
   }
 
-  Serial.print(F("Temperature: "));
-  Serial.print(t);
-  Serial.println(F("°C "));
+  temperatureObj["status"] = true;
+  temperatureObj["value"] = temperature;
 
-  ArduinoSerial.print(F("Temperature: "));
-  ArduinoSerial.print(t);
-  ArduinoSerial.println(F("°C "));
-
-  delay(500);
-
+  return temperatureObj;
 }
 
+void readFromNodemcu()
+{
+  clearJson();
 
-void checkSerialCom() {
-  String response;
-  if (ArduinoSerial.available() > 0) {
+  if (ArduinoSerial.available() > 0)
+  {
+    String dataFromNodemcu = ArduinoSerial.readString();
 
-    while (ArduinoSerial.available() > 0) {
-      data = ArduinoSerial.read();
-      response += data;
-    }
-
-    Serial.println(response);
-
-    if (response == "on") {
-      digitalWrite(4, LOW);
-      ArduinoSerial.println("Turned on");
-    }
-
-    if (response == "off") {
-      digitalWrite(4, HIGH);
-      ArduinoSerial.println("Turned off");
-    }
+    deserializeJson(json, dataFromNodemcu);
+    Serial.println(dataFromNodemcu);
   }
+}
 
-  delay(500);
+void clearJson()
+{
+  json = JsonVariant();
+}
+
+void flushAll()
+{
+  while (ArduinoSerial.available())
+    ArduinoSerial.read();
 }
