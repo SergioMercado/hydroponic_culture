@@ -1,5 +1,4 @@
 const Mapper = require('./mapper');
-const Helper = require('./helper');
 
 const getActuator = async (req, res) => {
   try {
