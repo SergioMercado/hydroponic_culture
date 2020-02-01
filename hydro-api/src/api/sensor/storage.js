@@ -16,6 +16,25 @@ const findAll = async ({ agentCode, agentId }) => {
   return sensors;
 };
 
+const updateValue = async ({ agentId, agentCode, code, value }) => {
+  const sensor = await Sensor.update(
+    { code, value },
+    {
+      include: [
+        {
+          model: Agent,
+          required: true,
+          where: { code: agentCode }
+        }
+      ],
+      where: { agentId, code }
+    }
+  );
+
+  return sensor;
+};
+
 module.exports = {
-  findAll
+  findAll,
+  updateValue
 };
