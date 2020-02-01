@@ -6,13 +6,15 @@
 
 ESP8266WiFiMulti WiFiMulti;
 SoftwareSerial MCUSerial(D2, D3); //Rx, Tx
-String host = "https://hydro-udc.herokuapp.com",
-       endPoint = "";
-boolean cardRead = false;
-char data;
 HTTPClient hydroApi;
-String fingerPrint = "08 3b 71 72 02 43 6e ca ed 42 86 93 ba 7e df 81 c4 bc 62 30";
-DynamicJsonDocument json(1024);
+DynamicJsonDocument inputJson(JSON_OBJECT_SIZE(3) + 3 * JSON_OBJECT_SIZE(4) + 140);
+String host = "https://hydro-udc.herokuapp.com",
+       endPoint = "",
+       agentCode = "mcu-h1",
+       from = "mcu",
+       agentId = "1",
+       type = "pump",
+       fingerPrint = "08 3b 71 72 02 43 6e ca ed 42 86 93 ba 7e df 81 c4 bc 62 30";
 
 void setup()
 {
@@ -42,88 +44,106 @@ void setup()
 
 void loop()
 {
-
   if (WiFiMulti.run() == WL_CONNECTED)
   {
-    endPoint = "/status";
+    getActuatorValue();
+    String data =  readFromArduino();
 
-    if (hydroApi.begin(host + endPoint, fingerPrint))
-    {
-      int statusCode = hydroApi.GET();
-
-      if (statusCode > 0)
-      {
-        // file found at server
-        if (statusCode == HTTP_CODE_OK || statusCode == HTTP_CODE_MOVED_PERMANENTLY)
-        {
-          String response = hydroApi.getString();
-
-          Serial.println("From API: " + response);
-
-          createJson();
-          delay(250);
-          serializeJson(json, MCUSerial);
-          Serial.flush();
-
-          readFromArduino();
-          cleanConnection();
-        }
-      }
-      else
-      {
-        Serial.printf("[HTTP] GET failed, error: %s\n", hydroApi.errorToString(statusCode).c_str());
-      }
+    if (data != "error") {
+      updateSensorValues(data);
     }
-    else
-    {
-      Serial.printf("[HTTP] Unable to connect\n");
-      delay(1000);
-      cleanConnection();
-    }
+
+    cleanConnection();
   }
   else
   {
     cleanConnection();
   }
-}
-
-void ledBlink(int pin, int seconds)
-{
-  digitalWrite(pin, LOW);
-  delay(1000 * seconds);
-  digitalWrite(pin, HIGH);
+  delay(150);
 }
 
 void cleanConnection()
 {
   hydroApi.end();
-  clearJson();
+  clearInputJson();
 }
 
-void readFromArduino()
+String readFromArduino()
 {
-  clearJson();
+  clearInputJson();
 
   if (MCUSerial.available() > 0)
   {
     flushAll();
     String dataFromArduino = MCUSerial.readString();
+    Serial.println("From arduino: " + dataFromArduino);
 
-    deserializeJson(json, dataFromArduino);
-    Serial.println(dataFromArduino);
+    return dataFromArduino;
   }
-  delay(250);
+  return "error";
 }
 
-void createJson()
-{
-  JsonObject pump = json.createNestedObject("pump");
-  pump["status"] = false;
+void clearInputJson() {
+  inputJson = JsonVariant();
 }
 
-void clearJson()
-{
-  json = JsonVariant();
+void getActuatorValue() {
+  endPoint = "/actuator/" + agentId + "?agentCode=" + agentCode + "&from=" + from + "&type=" + type;
+
+  if (hydroApi.begin(host + endPoint, fingerPrint))
+  {
+    int statusCode = hydroApi.GET();
+
+    if (statusCode > 0)
+    {
+      if (statusCode == HTTP_CODE_OK || statusCode == HTTP_CODE_MOVED_PERMANENTLY)
+      {
+        String response = hydroApi.getString();
+
+        Serial.println("From API: " + response);
+        MCUSerial.println(response);
+        Serial.flush();
+      }
+    }
+    else
+    {
+      Serial.printf("[HTTP] GET failed, error: %s\n", hydroApi.errorToString(statusCode).c_str());
+    }
+  }
+  else
+  {
+    Serial.printf("[HTTP] Unable to connect\n");
+    delay(500);
+    cleanConnection();
+  }
+}
+
+void updateSensorValues(String sensorData) {
+  endPoint = "/sensor/" + agentId + "?agentCode=" + agentCode;
+
+  if (hydroApi.begin(host + endPoint, fingerPrint)) {
+    hydroApi.addHeader("Content-Type", "application/json");
+    int statusCode = hydroApi.PUT(sensorData);
+
+    if (statusCode > 0)
+    {
+      if (statusCode == HTTP_CODE_OK || statusCode == HTTP_CODE_MOVED_PERMANENTLY)
+      {
+        String response = hydroApi.getString();
+        Serial.println("From API: " + response);
+      }
+    }
+    else
+    {
+      Serial.printf("[HTTP] GET failed, error: %s\n", hydroApi.errorToString(statusCode).c_str());
+    }
+  }
+  else
+  {
+    Serial.printf("[HTTP] Unable to connect\n");
+    delay(1000);
+    cleanConnection();
+  }
 }
 
 void flushAll()

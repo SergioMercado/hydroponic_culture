@@ -1,51 +1,49 @@
 /*
-1) si el nivel del agua baja apagarbomba y notificar json con el nivel
-2) si el nivel de la humedad es mayor a y menor a, notificar
-3)
+  1) si el nivel del agua baja apagarbomba y notificar json con el nivel
+  2) si el nivel de la humedad es mayor a y menor a, notificar
+  3)
 */
 
 #include <ArduinoJson.h>
 #include <SoftwareSerial.h>
-
-SoftwareSerial ArduinoSerial(2, 3); //(Rx Tx) ESP -> Arduino: Tx -> 2, Rx -> 3.
-char data;
-DynamicJsonDocument json(1024);
-//Configuration of UltraSound
-const int Trigger = 6;   //Pin digital 2 para el Trigger del sensor
-const int Echo = 7;   //Pin digital 3 para el Echo del sensor
-long minRange = 1; 
-long maxRange = 100;
-
-
-// Configuration of humidity (COH)
 #include "DHT.h"
 
 #define DHTPIN 5
 #define DHTTYPE DHT11
+
+SoftwareSerial ArduinoSerial(2, 3); //(Rx Tx) ESP -> Arduino: Tx -> 2, Rx -> 3.
+DynamicJsonDocument outputJson(JSON_ARRAY_SIZE(3) + 3*JSON_OBJECT_SIZE(4) + 348);
+DynamicJsonDocument inputJson(JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(2) + 70);
 DHT dht(DHTPIN, DHTTYPE);
+const int Trigger = 6;   //Pin digital 6 para el Trigger del sensor
+const int Echo = 7;   //Pin digital 7 para el Echo del sensor
+long minRange = 1;
+long maxRange = 100;
+const int pumpPin = 4;
 
 void setup()
 {
-
   Serial.begin(115200);
-  ArduinoSerial.begin(9600); //bd from master (ESP)
-  pinMode(4, OUTPUT);
-
-  //COH
+  ArduinoSerial.begin(9600);
   dht.begin();
+
+  pinMode(pumpPin, OUTPUT);
+  digitalWrite(pumpPin, HIGH);
 }
 
 void loop()
 {
-  json["temperature"] = readTemperatureSensor();
-  json["humidity"] = readHumiditySensor();
-  //json["waterLevel"] = readUltraSoundSensor();
-  delay(250);
-  distanceToPercent();
-  serializeJson(json, ArduinoSerial);
-  
   readFromNodemcu();
-  clearJson();
+  clearOutputJson();
+
+  outputJson.add(readTemperatureSensor());
+  outputJson.add(readHumiditySensor());
+  outputJson.add(readUltraSoundSensor());
+  delay(150);
+  //distanceToPercent();
+
+  serializeJson(outputJson, ArduinoSerial);
+  clearOutputJson();
 }
 
 DynamicJsonDocument readHumiditySensor()
@@ -92,7 +90,7 @@ DynamicJsonDocument readTemperatureSensor()
 
 DynamicJsonDocument readUltraSoundSensor()
 {
-  DynamicJsonDocument distanceObj(JSON_OBJECT_SIZE(1)+JSON_OBJECT_SIZE(3)+97);
+  DynamicJsonDocument distanceObj(JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(3) + 97);
   long distance = getDistanceUlt();
   distanceObj["type"] = "hc-sr04";
   distanceObj["code"] = "us1-h1";
@@ -110,47 +108,60 @@ DynamicJsonDocument readUltraSoundSensor()
   return distanceObj;
 }
 
-long getDistanceUlt(){
+long getDistanceUlt() {
   long timeToRetornEco; //timepo que demora en llegar el eco
   long distanceOnCm; //distancia en centimetros
 
   digitalWrite(Trigger, HIGH);
   delayMicroseconds(10);          //Enviamos un pulso de 10us
   digitalWrite(Trigger, LOW);
-  
+
   timeToRetornEco = pulseIn(Echo, HIGH); //obtenemos el ancho del pulso
-  distanceOnCm = timeToRetornEco/59;
-  Serial.println(distanceOnCm);  
+  distanceOnCm = timeToRetornEco / 59;
   return distanceOnCm;
 }
 
-float distanceToPercent(){
+float distanceToPercent() {
   float percentNew = 0;
-  long distance=getDistanceUlt();
-  percentNew = ((distance * 100) /maxRange);
-  Serial.println(percentNew);
-  Serial.println(String(percentNew)+"% "+String(distance));
+  long distance = getDistanceUlt();
+  percentNew = ((distance * 100) / maxRange);
+  Serial.println(String(percentNew) + "% " + String(distance));
   return percentNew;
-  }
-
-
+}
 
 void readFromNodemcu()
 {
-  clearJson();
-
   if (ArduinoSerial.available() > 0)
   {
     String dataFromNodemcu = ArduinoSerial.readString();
+    Serial.println("From MCU: " + dataFromNodemcu);
+    DeserializationError error = deserializeJson(inputJson, dataFromNodemcu);
 
-    deserializeJson(json, dataFromNodemcu);
-    Serial.println(dataFromNodemcu);
+    if (!error) {
+      takeAction();
+    }
+    else {
+      clearInputJson();
+      return;
+    }
   }
+
+  clearInputJson();
+  delay(250);
 }
 
-void clearJson()
+void takeAction() {
+  bool value = inputJson["pump"]["value"];
+  digitalWrite(pumpPin, !value);
+}
+
+void clearOutputJson()
 {
-  json = JsonVariant();
+  outputJson = JsonVariant();
+}
+
+void clearInputJson() {
+  inputJson = JsonVariant();
 }
 
 void flushAll()
