@@ -6,6 +6,7 @@ class Sensor {
     this.agentId = params.agentId;
     this.code = params.code;
     this.value = params.value;
+    this.status = params.status;
   }
 
   async findSensors() {
@@ -14,8 +15,14 @@ class Sensor {
   }
 
   async updateValue() {
-    const { agentId, agentCode, code, value } = this;
-    return await Storage.updateValue({ agentId, agentCode, code, value });
+    const { agentId, agentCode, code, value, status } = this;
+    return await Storage.updateValue({
+      agentId,
+      agentCode,
+      code,
+      value,
+      status
+    });
   }
 }
 

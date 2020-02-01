@@ -16,9 +16,9 @@ const findAll = async ({ agentCode, agentId }) => {
   return sensors;
 };
 
-const updateValue = async ({ agentId, agentCode, code, value }) => {
+const updateValue = async ({ agentId, agentCode, code, value, status }) => {
   const sensor = await Sensor.update(
-    { code, value },
+    { code, value, status },
     {
       include: [
         {

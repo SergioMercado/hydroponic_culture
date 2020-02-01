@@ -21,12 +21,8 @@ const updateSensorValues = async (req, res) => {
     const { agentCode } = req.query;
     const sensors = req.body;
 
-    sensors.map(async ({ code, value }) => {
-      console.log('TCL: updateSensorValues -> { code, value }', {
-        code,
-        value
-      });
-      const newSensor = new Mapper({ code, value, agentCode, agentId });
+    sensors.map(async ({ code, value, status }) => {
+      const newSensor = new Mapper({ code, value, agentCode, agentId, status });
 
       newSensor.updateValue().catch(error => console.log(error));
     });
