@@ -1,5 +1,15 @@
-const Status = require('./status');
+const Sensor = require('./sensor');
+const Station = require('./station');
+const Agent = require('./agent');
+const Actuator = require('./actuator');
+
+Agent.belongsTo(Station, { foreignKey: 'stationId' });
+Sensor.belongsTo(Agent, { foreignKey: 'agentId' });
+Actuator.belongsTo(Agent, { foreignKey: 'agentId' });
 
 module.exports = {
-  Status
+  Sensor,
+  Station,
+  Agent,
+  Actuator
 };
