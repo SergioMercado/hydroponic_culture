@@ -1,4 +1,4 @@
-const Storage = require('./storage');
+const Storage = require("./storage");
 
 class Sensor {
   constructor(params) {
@@ -7,6 +7,7 @@ class Sensor {
     this.code = params.code;
     this.value = params.value;
     this.status = params.status;
+    this.variable = params.variable;
   }
 
   async findSensors() {
