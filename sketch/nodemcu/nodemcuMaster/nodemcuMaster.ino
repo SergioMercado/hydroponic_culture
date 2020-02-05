@@ -23,7 +23,7 @@ void setup()
   WiFiMulti.addAP("Fuentech", "!Guapeton*");
   WiFiMulti.addAP("ROCKELIN", "Fuentes2018TR");
   WiFiMulti.addAP("RED NITRO 5", "MasterCode");
-  
+
   pinMode(D4, OUTPUT);
 
   Serial.begin(115200);
@@ -60,7 +60,7 @@ void loop()
   {
     cleanConnection();
   }
-  delay(150);
+  //delay(150);
 }
 
 void cleanConnection()
@@ -124,20 +124,22 @@ void updateSensorValues(String sensorData) {
 
   if (hydroApi.begin(host + endPoint, fingerPrint)) {
     hydroApi.addHeader("Content-Type", "application/json");
-    int statusCode = hydroApi.PUT(sensorData);
+    hydroApi.PUT(sensorData);
 
-    if (statusCode > 0)
-    {
+    /*
+      if (statusCode > 0)
+      {
       if (statusCode == HTTP_CODE_OK || statusCode == HTTP_CODE_MOVED_PERMANENTLY)
       {
         String response = hydroApi.getString();
         Serial.println("From API: " + response);
       }
-    }
-    else
-    {
+      }
+      else
+      {
       Serial.printf("[HTTP] GET failed, error: %s\n", hydroApi.errorToString(statusCode).c_str());
-    }
+      }
+    */
   }
   else
   {

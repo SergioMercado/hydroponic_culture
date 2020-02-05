@@ -28,11 +28,13 @@ void setup()
   Serial.begin(115200);
   ArduinoSerial.begin(9600);
   dht.begin();
+  
   pinMode(floaterpin, INPUT_PULLUP);
   pinMode(pumpPin, OUTPUT);
-  digitalWrite(pumpPin, HIGH);
   pinMode(Trigger, OUTPUT); //pin como salida
   pinMode(Echo, INPUT);  //pin como entrada
+  
+  digitalWrite(pumpPin, HIGH);
   digitalWrite(Trigger, LOW);//Inicializamos el pin con 0
 
 }
@@ -45,8 +47,8 @@ void loop()
   outputJson.add(readTemperatureSensor());
   outputJson.add(readHumiditySensor());
   outputJson.add(readUltraSoundSensor());
-  outputJson.add(readFloaterLevelSensor());
-  delay(150);
+  //outputJson.add(readFloaterLevelSensor());
+  //delay(150);
   //distanceToPercent();
 
   serializeJson(outputJson, ArduinoSerial);
@@ -193,12 +195,11 @@ void readFromNodemcu()
   }
 
   clearInputJson();
-  delay(250);
+  //delay(250);
 }
 
 void turnONOffPump(bool value) {
   digitalWrite(pumpPin, value);
-
 }
 
 void takeAction() {
