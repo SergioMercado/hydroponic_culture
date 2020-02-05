@@ -22,7 +22,8 @@ void setup()
 
   WiFiMulti.addAP("Fuentech", "!Guapeton*");
   WiFiMulti.addAP("ROCKELIN", "Fuentes2018TR");
-
+  WiFiMulti.addAP("RED NITRO 5", "MasterCode");
+  
   pinMode(D4, OUTPUT);
 
   Serial.begin(115200);

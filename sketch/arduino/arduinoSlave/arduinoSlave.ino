@@ -12,7 +12,7 @@
 #define DHTTYPE DHT11
 
 SoftwareSerial ArduinoSerial(2, 3); //(Rx Tx) ESP -> Arduino: Tx -> 2, Rx -> 3.
-DynamicJsonDocument outputJson(JSON_ARRAY_SIZE(3) + 3*JSON_OBJECT_SIZE(4) + 348);
+DynamicJsonDocument outputJson(JSON_ARRAY_SIZE(3) + 3 * JSON_OBJECT_SIZE(4) + 348);
 DynamicJsonDocument inputJson(JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(2) + 70);
 DHT dht(DHTPIN, DHTTYPE);
 const int Trigger = 6;   //Pin digital 6 para el Trigger del sensor
@@ -20,15 +20,21 @@ const int Echo = 7;   //Pin digital 7 para el Echo del sensor
 long minRange = 1;
 long maxRange = 100;
 const int pumpPin = 4;
+int floaterpin = 8; // definimos el pin
+
 
 void setup()
 {
   Serial.begin(115200);
   ArduinoSerial.begin(9600);
   dht.begin();
-
+  pinMode(floaterpin, INPUT_PULLUP);
   pinMode(pumpPin, OUTPUT);
   digitalWrite(pumpPin, HIGH);
+  pinMode(Trigger, OUTPUT); //pin como salida
+  pinMode(Echo, INPUT);  //pin como entrada
+  digitalWrite(Trigger, LOW);//Inicializamos el pin con 0
+
 }
 
 void loop()
@@ -39,6 +45,7 @@ void loop()
   outputJson.add(readTemperatureSensor());
   outputJson.add(readHumiditySensor());
   outputJson.add(readUltraSoundSensor());
+  outputJson.add(readFloaterLevelSensor());
   delay(150);
   //distanceToPercent();
 
@@ -88,10 +95,43 @@ DynamicJsonDocument readTemperatureSensor()
   return temperatureObj;
 }
 
+
+DynamicJsonDocument readFloaterLevelSensor()
+{
+  DynamicJsonDocument floaterObj(JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(3) + 97);
+  int floater = digitalRead(floaterpin);
+  String fullOrNot;
+
+  if (floater == HIGH) {
+    fullOrNot = "low";
+    //turnONOffPump(LOW);
+    Serial.println(F("The tank is not full please fill it!"));
+  }
+  else {
+    fullOrNot = "full";
+  }
+
+  floaterObj["type"] = "wt-40";
+  floaterObj["code"] = "fs1-h1";
+  if (isnan(floater))
+  {
+    Serial.println(F("Failed to read Distance from Floater Level sensor!"));
+    floaterObj["status"] = false;
+    floaterObj["value"] = 0;
+    return floaterObj;
+  }
+
+  floaterObj["status"] = true;
+  floaterObj["value"] = fullOrNot;
+
+  return floaterObj;
+
+}
+
 DynamicJsonDocument readUltraSoundSensor()
 {
   DynamicJsonDocument distanceObj(JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(3) + 97);
-  long distance = getDistanceUlt();
+  long distance = distanceToPercent();
   distanceObj["type"] = "hc-sr04";
   distanceObj["code"] = "us1-h1";
   if (isnan(distance))
@@ -118,7 +158,12 @@ long getDistanceUlt() {
 
   timeToRetornEco = pulseIn(Echo, HIGH); //obtenemos el ancho del pulso
   distanceOnCm = timeToRetornEco / 59;
+
+  delay(100);
+  Serial.print("distance on cm: ");
+  Serial.println(distanceOnCm);
   return distanceOnCm;
+
 }
 
 float distanceToPercent() {
@@ -142,6 +187,7 @@ void readFromNodemcu()
     }
     else {
       clearInputJson();
+
       return;
     }
   }
@@ -150,9 +196,15 @@ void readFromNodemcu()
   delay(250);
 }
 
+void turnONOffPump(bool value) {
+  digitalWrite(pumpPin, value);
+
+}
+
 void takeAction() {
   bool value = inputJson["pump"]["value"];
-  digitalWrite(pumpPin, !value);
+  //digitalWrite(pumpPin, !value);
+  turnONOffPump(!value);
 }
 
 void clearOutputJson()
