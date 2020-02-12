@@ -54,7 +54,7 @@ export default function Dashboard() {
         params: { agentCode: 'mcu-h1', type: 'pump' },
       })
       .then(({ data }) => {
-        setStatus(data.status);
+        setStatus(data.value);
       });
   }, []);
 
@@ -94,7 +94,7 @@ export default function Dashboard() {
 
     return () => clearInterval(interval);
   }, []);
-  
+
   const changeStatusOfStation = () => {
     axios
       .post('/actuator', {
